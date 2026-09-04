@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import re
 
-st.set_page_config(page_title="Triagem Rigorosa v2.0", page_icon="⚖️")
+st.set_page_config(page_title="Triagem de Alto Rigor v3.0", page_icon="⚖️")
 conn = st.connection("gsheets", type=GSheetsConnection)
 SENHA_ADMIN = "suasenha123"
 
@@ -12,91 +12,100 @@ if "passo" not in st.session_state:
     st.session_state.respostas = []
     st.session_state.dados_pessoais = {"nome": "", "email": ""}
 
-# --- FUNÇÃO DE ANÁLISE TÉCNICA ---
+# --- MOTOR DE ANÁLISE ÉTICA E TÉCNICA ---
 def realizar_analise_rigorosa(respostas):
     texto_total = " ".join(respostas).lower()
     palavras = re.findall(r'\w+', texto_total)
     total_palavras = len(palavras)
     vocabulario_unico = len(set(palavras))
     
-    score_esforço = min(50, (total_palavras / 150) * 50)
-    ratio_complexidade = vocabulario_unico / total_palavras if total_palavras > 0 else 0
-    score_complexidade = ratio_complexidade * 30
+    # 1. Pontuação de Esforço (0 a 40)
+    score_esforco = min(40, (total_palavras / 150) * 40)
     
-    temas = {
-        "Liderança Comunitária": ["projeto", "voluntario", "equipe", "comunidade", "liderar", "coletivo", "social", "impacto", "ajudar"],
-        "Resiliência Acadêmica": ["superar", "dificuldade", "obstaculo", "estudar", "esforço", "trabalho", "persistencia", "luta", "familia"],
-        "Inovação e Criatividade": ["criar", "ideia", "diferente", "tecnologia", "solução", "mudar", "novo", "pesquisa", "desenvolver"]
+    # 2. Complexidade e Vocabulário (0 a 20)
+    ratio_complexo = vocabulario_unico / total_palavras if total_palavras > 0 else 0
+    score_complexo = ratio_complexo * 20
+    
+    # 3. Mapeamento de Valores Positivos (0 a 40)
+    temas_positivos = {
+        "Comunidade": ["projeto", "voluntario", "ajudar", "impacto", "coletivo", "social", "região", "compartilhar"],
+        "Resiliência": ["superar", "estudar", "esforço", "persistencia", "aprendi", "desafio", "foco", "disciplina"],
+        "Inovação": ["criar", "ideia", "solução", "melhorar", "desenvolver", "pesquisa", "futuro", "ciência"]
     }
     
-    pontos_temas = {k: 0 for k in temas.keys()}
-    for tema, palavras_chave in temas.items():
-        for pc in palavras_chave:
-            pontos_temas[tema] += texto_total.count(pc)
+    pontos_positivos = 0
+    perfil_provavel = "Não Identificado"
+    maior_ponto_tema = 0
+    
+    for tema, keywords in temas_positivos.items():
+        count = sum(texto_total.count(k) for k in keywords)
+        pontos_positivos += count
+        if count > maior_ponto_tema:
+            maior_ponto_tema = count
+            perfil_provavel = tema
 
-    categoria_vencedora = max(pontos_temas, key=pontos_temas.get)
-    total_pontos_temas = pontos_temas[categoria_vencedora]
+    # 4. SISTEMA DE PENALIDADES (RED FLAGS)
+    # Palavras que indicam comportamento antissocial ou falta de ética
+    red_flags = ["odeio", "sozinho", "individual", "rico", "riqueza", "dinheiro", "dane", "foda", "preguiça", "nada", "nenhum", "ego", "ambicioso"]
+    pontos_negativos = sum(texto_total.count(rf) for rf in red_flags) * 15 # Penalidade pesada por termo
     
-    score_final = score_esforço + score_complexidade + (min(20, total_pontos_temas * 2))
+    # 5. CÁLCULO FINAL
+    # A nota máxima é 100, mas as penalidades podem levar a nota para baixo de zero
+    score_final = score_esforco + score_complexo + (min(40, pontos_positivos * 3)) - pontos_negativos
     
-    if total_palavras < 40 or score_final < 45 or ratio_complexidade < 0.4:
+    # --- CRITÉRIOS DE CORTE RIGOROSOS ---
+    if score_final < 40 or pontos_negativos > 20:
         resultado = "REPROVADO"
-        classificacao = "Perfil Inconsistente"
-        resumo = "Respostas superficiais, repetitivas ou com falta de evidências de trajetória."
-    elif score_final < 65:
+        resumo = "DESALINHAMENTO ÉTICO: O candidato expressou valores contrários aos princípios de coletividade e dedicação acadêmica do programa."
+    elif score_final < 70:
         resultado = "EM ANÁLISE"
-        classificacao = categoria_vencedora
-        resumo = "O candidato possui potencial, mas as respostas carecem de detalhes técnicos ou exemplos práticos."
+        resumo = "PERFIL MEDIANO: Respostas coerentes, mas com pouco aprofundamento ou evidências de impacto real."
     else:
         resultado = "SELECIONADO"
-        classificacao = categoria_vencedora
-        resumo = f"Perfil sólido em {categoria_vencedora}. Demonstra vocabulário rico, clareza e alto engajamento."
+        resumo = f"ALTO POTENCIAL: Demonstrado em {perfil_provavel}. Excelente articulação, vocabulário e alinhamento com o bem comum."
 
-    return classificacao, resultado, round(score_final, 2), resumo
+    return perfil_provavel, resultado, round(max(0, score_final), 2), resumo
 
 # --- INTERFACE ---
-st.sidebar.title("Sistema de Triagem")
+st.sidebar.title("Comitê de Avaliação")
 aba = st.sidebar.radio("Navegação", ["Inscrição", "Área do Gestor"])
 
 if aba == "Inscrição":
-    st.title("🎓 Avaliação de Perfil Acadêmico")
+    st.title("🎓 Processo Seletivo de Bolsas")
     
     if st.session_state.passo == 0:
+        st.info("Bem-vindo. Esta entrevista avaliará seu mérito acadêmico e compromisso social.")
         nome = st.text_input("Nome Completo:")
         email = st.text_input("E-mail:")
-        if st.button("Iniciar Avaliação Rigorosa"):
+        if st.button("Iniciar"):
             if nome and "@" in email:
                 st.session_state.dados_pessoais.update({"nome": nome, "email": email})
                 st.session_state.passo = 1
                 st.rerun()
-            else:
-                st.error("Preencha nome e e-mail válidos.")
     
     elif 1 <= st.session_state.passo <= 5:
         perguntas = [
-            "Descreva detalhadamente sua trajetória e o que te motiva academicamente.",
-            "Relate uma situação adversa específica e como você aplicou estratégia para superá-la.",
-            "Descreva sua atuação em projetos coletivos e qual foi seu papel na resolução de problemas.",
-            "Como você aplicará tecnicamente os conhecimentos desta bolsa em sua realidade local?",
-            "Por que seu perfil se diferencia dos demais candidatos em termos de persistência e visão?"
+            "Descreva sua motivação para os estudos e sua trajetória escolar até aqui.",
+            "Relate um desafio de vida e como sua resiliência foi testada.",
+            "Como você descreve sua capacidade de trabalhar em grupos e servir ao próximo?",
+            "De que forma prática você pretende retribuir este investimento à sua região?",
+            "Por que o comitê deve confiar em sua ética e persistência para esta vaga?"
         ]
         
         st.subheader(f"Questão {st.session_state.passo} de 5")
-        # --- LINHA CORRIGIDA ABAIXO ---
         st.markdown(f"#### {perguntas[st.session_state.passo - 1]}")
+        resp = st.text_area("Sua resposta analítica:", height=180, key=f"q{st.session_state.passo}")
         
-        resp = st.text_area("Sua resposta:", height=200, key=f"input_{st.session_state.passo}")
-        
-        if st.button("Confirmar Resposta"):
-            if len(resp.split()) < 5:
-                st.error("Resposta muito curta. Por favor, aprofunde sua explicação.")
+        if st.button("Próxima"):
+            if len(resp.split()) < 3:
+                st.error("Resposta insuficiente para avaliação de mérito.")
             else:
                 st.session_state.respostas.append(resp)
                 st.session_state.passo += 1
                 st.rerun()
 
     else:
-        st.info("Processando análise de mérito...")
+        st.warning("Finalizando análise técnica e ética...")
         classe, result, nota, res = realizar_analise_rigorosa(st.session_state.respostas)
         
         nova_linha = pd.DataFrame([{
@@ -119,19 +128,5 @@ if aba == "Inscrição":
         except:
             conn.update(worksheet="Página1", data=nova_linha)
 
-        st.success("Avaliação enviada com sucesso!")
-        if st.button("Finalizar"):
-            st.session_state.passo = 0
-            st.session_state.respostas = []
-            st.rerun()
-
-else:
-    st.title("🔑 Painel de Auditoria")
-    senha = st.text_input("Senha Admin:", type="password")
-    if senha == SENHA_ADMIN:
-        df = conn.read(worksheet="Página1", ttl=0)
-        if not df.empty:
-            st.metric("Média de Pontuação", round(df["Pontuacao"].astype(float).mean(), 2))
-            st.dataframe(df.sort_values(by="Pontuacao", ascending=False))
-        else:
-            st.info("Nenhum dado encontrado.")
+        st.success("Dados enviados ao comitê.")
+        if st.button("Co
