@@ -61,7 +61,7 @@ if aba == "Formulário de Inscrição":
         
         # Ler dados atuais e adicionar novo
         try:
-            existente = conn.read(worksheet="Página1")
+            existente = conn.read(worksheet="Página1", ttl=0)
             atualizado = pd.concat([existente, nova_linha], ignore_index=True)
             conn.update(worksheet="Página1", data=atualizado)
         except:
@@ -78,6 +78,6 @@ else:
     senha = st.text_input("Senha", type="password")
     
     if senha == SENHA_ADMIN:
-        data = conn.read(worksheet="Página1")
+        data = conn.read(worksheet="Página1", ttl =0)
         st.dataframe(data)
         st.download_button("Baixar Planilha (CSV)", data.to_csv().encode('utf-8'), "candidatos.csv")
