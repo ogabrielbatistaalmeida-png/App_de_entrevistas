@@ -12,23 +12,17 @@ if "passo" not in st.session_state:
     st.session_state.respostas = []
     st.session_state.dados_pessoais = {"nome": "", "email": ""}
 
-# --- FUNÇÃO DE ANÁLISE TÉCNICA (O RIGOR) ---
+# --- FUNÇÃO DE ANÁLISE TÉCNICA ---
 def realizar_analise_rigorosa(respostas):
     texto_total = " ".join(respostas).lower()
     palavras = re.findall(r'\w+', texto_total)
     total_palavras = len(palavras)
     vocabulario_unico = len(set(palavras))
     
-    # 1. Pontuação de Esforço (Base: 0 a 50)
-    # Exige pelo menos 150 palavras no total para pontuação máxima de esforço
     score_esforço = min(50, (total_palavras / 150) * 50)
-    
-    # 2. Pontuação de Complexidade (Base: 0 a 30)
-    # Analisa se o candidato usa um vocabulário variado ou repete palavras
     ratio_complexidade = vocabulario_unico / total_palavras if total_palavras > 0 else 0
     score_complexidade = ratio_complexidade * 30
     
-    # 3. Mapeamento Temático (Rigoroso)
     temas = {
         "Liderança Comunitária": ["projeto", "voluntario", "equipe", "comunidade", "liderar", "coletivo", "social", "impacto", "ajudar"],
         "Resiliência Acadêmica": ["superar", "dificuldade", "obstaculo", "estudar", "esforço", "trabalho", "persistencia", "luta", "familia"],
@@ -38,18 +32,13 @@ def realizar_analise_rigorosa(respostas):
     pontos_temas = {k: 0 for k in temas.keys()}
     for tema, palavras_chave in temas.items():
         for pc in palavras_chave:
-            # Conta quantas vezes cada termo aparece
             pontos_temas[tema] += texto_total.count(pc)
 
-    # Escolhe o tema com mais ocorrências
     categoria_vencedora = max(pontos_temas, key=pontos_temas.get)
     total_pontos_temas = pontos_temas[categoria_vencedora]
     
-    # 4. Cálculo do Score Final (0 a 100)
-    # Se não houver pontos de tema, a pontuação cai drasticamente
     score_final = score_esforço + score_complexidade + (min(20, total_pontos_temas * 2))
     
-    # --- CRITÉRIOS DE CORTE ---
     if total_palavras < 40 or score_final < 45 or ratio_complexidade < 0.4:
         resultado = "REPROVADO"
         classificacao = "Perfil Inconsistente"
@@ -80,6 +69,8 @@ if aba == "Inscrição":
                 st.session_state.dados_pessoais.update({"nome": nome, "email": email})
                 st.session_state.passo = 1
                 st.rerun()
+            else:
+                st.error("Preencha nome e e-mail válidos.")
     
     elif 1 <= st.session_state.passo <= 5:
         perguntas = [
@@ -89,8 +80,12 @@ if aba == "Inscrição":
             "Como você aplicará tecnicamente os conhecimentos desta bolsa em sua realidade local?",
             "Por que seu perfil se diferencia dos demais candidatos em termos de persistência e visão?"
         ]
+        
         st.subheader(f"Questão {st.session_state.passo} de 5")
-        resp = st.text_area("Sua resposta (mínimo de 3 linhas recomendado):", height=200)
+        # --- LINHA CORRIGIDA ABAIXO ---
+        st.markdown(f"#### {perguntas[st.session_state.passo - 1]}")
+        
+        resp = st.text_area("Sua resposta:", height=200, key=f"input_{st.session_state.passo}")
         
         if st.button("Confirmar Resposta"):
             if len(resp.split()) < 5:
@@ -102,10 +97,8 @@ if aba == "Inscrição":
 
     else:
         st.info("Processando análise de mérito...")
-        # Chamada da função rigorosa
         classe, result, nota, res = realizar_analise_rigorosa(st.session_state.respostas)
         
-        # Salvamento
         nova_linha = pd.DataFrame([{
             "Nome": st.session_state.dados_pessoais["nome"],
             "Email": st.session_state.dados_pessoais["email"],
@@ -126,7 +119,7 @@ if aba == "Inscrição":
         except:
             conn.update(worksheet="Página1", data=nova_linha)
 
-        st.success("Avaliação enviada. O comitê analisará seus dados.")
+        st.success("Avaliação enviada com sucesso!")
         if st.button("Finalizar"):
             st.session_state.passo = 0
             st.session_state.respostas = []
@@ -137,5 +130,8 @@ else:
     senha = st.text_input("Senha Admin:", type="password")
     if senha == SENHA_ADMIN:
         df = conn.read(worksheet="Página1", ttl=0)
-        st.metric("Média de Pontuação dos Candidatos", round(df["Pontuacao"].astype(float).mean(), 2) if not df.empty else 0)
-        st.dataframe(df.sort_values(by="Pontuacao", ascending=False))
+        if not df.empty:
+            st.metric("Média de Pontuação", round(df["Pontuacao"].astype(float).mean(), 2))
+            st.dataframe(df.sort_values(by="Pontuacao", ascending=False))
+        else:
+            st.info("Nenhum dado encontrado.")
